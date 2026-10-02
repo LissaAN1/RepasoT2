@@ -13,7 +13,9 @@ services:
     networks:
       - cicd_network
     ports:
+      # UI / REST de Nexus
       - "${NEXUS_UI_PORT:-9081}:8081"
+      # Docker Registry hosted (se configura en la UI con este mismo puerto HTTP)
       - "${NEXUS_DOCKER_PORT:-9080}:9080"
     volumes:
       - nexus_data:/nexus-data
@@ -32,4 +34,3 @@ networks:
 
 volumes:
   nexus_data:
-
