@@ -15,14 +15,18 @@
     <artifactId>studytrack-api</artifactId>
     <!--
         TODO
+        maven-releases NO acepta -SNAPSHOT (publicación inmutable). La versión se
+        parametriza con ${revision}: el Jenkinsfile la sobreescribe con
+        -Drevision=<nº de build>-<commit corto>. Por defecto (mvn test local) = 1.0.0
     -->
-    <version>0.0.1-SNAPSHOT</version>
+    <version>${revision}</version>
     <name>studytrack-api</name>
     <description>Backend REST de StudyTrack (Taller Evaluativo 2 - Ingeniería de Software V)</description>
 
     <properties>
         <java.version>17</java.version>
         <revision>1.0.0</revision>
+        <!-- URL del repositorio maven-releases. Dentro de la red Docker: http://nexus:8081 -->
         <nexus.maven.url>http://nexus:8081/repository/maven-releases/</nexus.maven.url>
     </properties>
 
@@ -65,8 +69,9 @@
         ============================================================
         TODO (Fase 2 - Publicación Inmutable en Nexus):
     -->
-        <distributionManagement>
+    <distributionManagement>
         <repository>
+            <!-- Debe coincidir con el <id> del <server> en settings.xml (credenciales) -->
             <id>nexus</id>
             <url>${nexus.maven.url}</url>
         </repository>

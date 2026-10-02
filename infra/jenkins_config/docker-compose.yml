@@ -10,6 +10,7 @@ services:
   jenkins:
     build: .
     container_name: jenkins
+    # root para poder usar /var/run/docker.sock (si no, "permission denied")
     user: root
     restart: unless-stopped
     networks:

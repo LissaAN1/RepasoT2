@@ -17,15 +17,19 @@ pipeline {
         disableConcurrentBuilds()
     }
 
+    // Disparo automático: GitHub -> smee.io -> smee-client -> /github-webhook/
     triggers {
         githubPush()
     }
 
     environment {
         // TODO
+        // Se redefine en la primera etapa: <nº de build>-<commit corto>
         IMAGE_TAG = "TODO-DEFINA-EN-UN-STAGE-SCRIPT"
 
         // TODO
+        // El registry se usa desde el daemon Docker del host (por eso localhost);
+        // Maven corre dentro de la red Docker (por eso el hostname "nexus").
         NEXUS_REGISTRY   = "localhost:9080"
         NEXUS_MAVEN_REPO = "http://nexus:8081/repository/maven-releases/"
 
@@ -41,6 +45,7 @@ pipeline {
 
                 script {
                     // TODO:
+                    // Versionado inmutable: nº de build + 7 primeros caracteres del commit
                     def shortCommit = sh(script: 'git rev-parse --short=7 HEAD', returnStdout: true).trim()
                     env.IMAGE_TAG = "${env.BUILD_NUMBER}-${shortCommit}"
                     echo "IMAGE_TAG definido: ${env.IMAGE_TAG}"
@@ -49,6 +54,12 @@ pipeline {
                 dir('backend') {
                     // TODO
                     sh 'mvn -B test'
+                }
+            }
+            //ojo
+            post {
+                always {
+                    junit allowEmptyResults: true, testResults: 'backend/target/surefire-reports/*.xml'
                 }
             }
         }
@@ -71,19 +82,21 @@ pipeline {
             steps {
                 // TODO
                 withCredentials([usernamePassword(
-                    credentialsId: env.NEXUS_CREDENTIALS_ID,
-                    usernameVariable: 'NEXUS_USER',
-                    passwordVariable: 'NEXUS_PASS')]) {
+                        credentialsId: env.NEXUS_CREDENTIALS_ID,
+                        usernameVariable: 'NEXUS_USER',
+                        passwordVariable: 'NEXUS_PASS')]) {
 
-                writeFile file: 'ci-settings.xml', text: '''<settings>
-    <servers>
-      <server>
-        <id>nexus</id>
-        <username>${env.NEXUS_USER}</username>
-        <password>${env.NEXUS_PASS}</password>
-      </server>
-    </servers>
-  </settings>'''
+                    // settings.xml temporal: Maven lee las credenciales de variables de entorno
+                    // (comillas simples: Groovy no interpola, nada queda en texto plano)
+                    writeFile file: 'ci-settings.xml', text: '''<settings>
+  <servers>
+    <server>
+      <id>nexus</id>
+      <username>${env.NEXUS_USER}</username>
+      <password>${env.NEXUS_PASS}</password>
+    </server>
+  </servers>
+</settings>'''
 
                     // Imágenes Docker -> docker-hosted
                     sh 'echo "$NEXUS_PASS" | docker login "$NEXUS_REGISTRY" -u "$NEXUS_USER" --password-stdin'
@@ -101,6 +114,7 @@ pipeline {
         stage('Deploy & Smoke Test') {
             steps {
                 // TODO
+                // Se descargan desde Nexus las imágenes recién publicadas y se levanta el stack
                 withCredentials([usernamePassword(
                         credentialsId: env.NEXUS_CREDENTIALS_ID,
                         usernameVariable: 'NEXUS_USER',
@@ -109,6 +123,8 @@ pipeline {
                     sh 'docker compose -f deploy/docker-compose.yml pull'
                     sh 'docker compose -f deploy/docker-compose.yml up -d'
                 }
+
+                // Smoke test con reintentos (el backend tarda unos segundos en arrancar)
                 sh '''
                     for i in $(seq 1 15); do
                         code=$(curl -s -o /dev/null -w "%{http_code}" http://studytrack-backend:8080/api/tasks || true)
@@ -132,6 +148,11 @@ pipeline {
         }
         failure {
             echo "El pipeline falló. Revise los logs de la etapa correspondiente antes de reintentar."
+        }
+        always {
+            // Limpieza: nunca dejar sesión de Docker ni settings.xml en el workspace
+            sh 'docker logout "$NEXUS_REGISTRY" || true'
+            sh 'rm -f ci-settings.xml'
         }
     }
 }

@@ -6,6 +6,8 @@ FROM jenkins/jenkins:lts-jdk17
 USER root
 
 # TODO
+# Docker CLI + plugin Compose (repositorio oficial de Docker) y Maven
+# (el pipeline ejecuta "mvn test" y "mvn deploy" directamente en Jenkins).
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl gnupg maven \
  && install -m 0755 -d /etc/apt/keyrings \
